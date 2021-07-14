@@ -1,6 +1,8 @@
 // noinspection JSUnresolvedVariable
 
 async function createSelect() {
+  const params = (new URL(window.location)).searchParams;
+  const currentRatio = params.get('media-attachment-ratio-filters');
 
   // WordPress has added an inline script prior to this one that includes
   // the aspectRatios variable that we access herein.  therefore, we can use
@@ -17,6 +19,7 @@ async function createSelect() {
   for (let ratio in aspectRatios) {
     if (aspectRatios.hasOwnProperty(ratio)) {
       option = document.createElement('option');
+      option.selected = ratio === currentRatio;
       option.text = aspectRatios[ratio];
       option.value = ratio;
       select.appendChild(option);
@@ -44,6 +47,12 @@ async function createSelect() {
 
     location.href = location.href.replace(location.search, '?') + data;
   });
+
+  if (currentRatio !== 'all') {
+    const typeFilter = document.getElementById('media-attachment-filters');
+    typeFilter.selectedIndex = 1;
+    typeFilter.disabled = true;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', createSelect);

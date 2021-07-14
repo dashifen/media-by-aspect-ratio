@@ -32,8 +32,9 @@ class MediaLibraryAgent extends AbstractPluginAgent
   {
     if (!$this->isInitialized()) {
       $this->addAction('admin_enqueue_scripts', 'addMediaLibraryScripts');
+      $this->addFilter('ajax_query_attachments_args', 'ajaxFilterGridView');
       $this->addAction('restrict_manage_posts', 'addAspectRatioFilter');
-      $this->addAction('parse_query', 'filterByAspectRatio');
+      $this->addAction('parse_query', 'filterListView');
     }
   }
   
@@ -58,6 +59,24 @@ class MediaLibraryAgent extends AbstractPluginAgent
       $handle = $this->enqueue('assets/scripts/admin-grid-modifications.js');
       wp_add_inline_script($handle, 'const aspectRatios = ' . $ratios, 'before');
     }
+  }
+  
+  protected function ajaxFilterGridView(array $query): array
+  {
+    if (isset($_REQUEST['query']['media-attachment-ratio-filters'])) {
+      $query['post_mime_type'] = 'image';
+      $query['meta_key'] = $this->handler->getPostMetaNamePrefix() . 'aspect-ratio';
+      $query['meta_value'] = $_REQUEST['query']['media-attachment-ratio-filters'];
+      
+      $dateQuery = $_REQUEST['query']['media-attachment-date-filters'] ?? 'All dates';
+      
+      if ($dateQuery !== 'All dates') {
+        [$month, $year] = explode(' ', $dateQuery);
+        $query['m'] = $year . $this->transformMonthToNumber($month, $year);
+      }
+    }
+    
+    return $query;
   }
   
   /**
@@ -150,50 +169,22 @@ class MediaLibraryAgent extends AbstractPluginAgent
    *
    * @return void
    */
-  protected function filterByAspectRatio(WP_Query $query): void
+  protected function filterListView(WP_Query $query): void
   {
-    $ratio = $_REQUEST['media-attachment-ratio-filters'] ?? null;
-    if ($query->get('post_type') === 'attachment' && $ratio !== null) {
-      if (($_REQUEST['mode'] ?? 'grid') === 'list') {
-        $this->addAspectRatioLimitationToQuery($query);
-      } else {
-        $this->filterGridView($query);
-      }
+    if (
+      $query->get('post_type') === 'attachment' // if we're querying attachments
+      && ($_GET['mode'] ?? '') === 'list'       // and we're displaying list mode
+      && (!empty($_GET['ratio']))               // and the ratio isn't empty
+    ) {
+      
+      // as long as our conditions are met, all we need to do here is make
+      // sure that our query knows to make sure that our aspect-ratio meta
+      // data matches the ratio in our query string.  conveniently, this
+      // doesn't require a meta query, though more care might be needed to
+      // avoid obliterating other meta queries already present.
+      
+      $query->set('meta_key', $this->handler->getPostMetaNamePrefix() . 'aspect-ratio');
+      $query->set('meta_value', $_GET['ratio']);
     }
-  }
-  
-  /**
-   * addAspectRatioLimitationToQuery
-   *
-   * Given a WP_Query object, adds a limitation that ensures we only show
-   * images with a specific aspect ratio.
-   *
-   * @param WP_Query $query
-   *
-   * @return void
-   */
-  private function addAspectRatioLimitationToQuery(WP_Query $query): void
-  {
-    $query->set('meta_key', $this->handler->getPostMetaNamePrefix() . 'aspect-ratio');
-    $query->set('meta_value', $_REQUEST['media-attachment-date-filters']);
-  }
-  
-  /**
-   * filterGridView
-   *
-   * Typically, the grid view is handled via AJAX, but we've added a filter
-   * with JS based refresh capabilities to crib together a way to filter it
-   * here.
-   *
-   * @param WP_Query $query
-   *
-   * @return void
-   */
-  private function filterGridView(WP_Query $query): void
-  {
-    $this->addAspectRatioLimitationToQuery($query);
-    
-    
-    self::debug($query, true);
   }
 }
