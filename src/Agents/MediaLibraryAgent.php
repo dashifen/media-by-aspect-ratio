@@ -31,9 +31,54 @@ class MediaLibraryAgent extends AbstractPluginAgent
   public function initialize(): void
   {
     if (!$this->isInitialized()) {
+      $this->addAction('admin_enqueue_scripts', 'addMediaLibraryScripts');
       $this->addAction('restrict_manage_posts', 'addAspectRatioFilter');
       $this->addAction('parse_query', 'filterByAspectRatio');
     }
+  }
+  
+  /**
+   * addMediaLibraryScripts
+   *
+   * Adds necessary JS to the media library page when it's in grid view.
+   *
+   * @throws TransformerException
+   * @throws HandlerException
+   */
+  protected function addMediaLibraryScripts(): void
+  {
+    $screen = get_current_screen();
+    
+    if (
+      $screen->base === 'upload'              // if we're uploading
+      && $screen->post_type === 'attachment'  // attachments
+      && ($_GET['mode'] ?? '') !== 'list'     // in grid view
+    ) {
+      $ratios = json_encode($this->getRatios());
+      $handle = $this->enqueue('assets/scripts/admin-grid-modifications.js');
+      wp_add_inline_script($handle, 'const aspectRatios = ' . $ratios, 'before');
+    }
+  }
+  
+  /**
+   * transformMonthToNumber
+   *
+   * Given the name of a month, returns a two digit number representing it
+   * where 01 is January and 12 is December.
+   *
+   * @param string $month
+   * @param int    $year
+   *
+   * @return int
+   * @link https://stackoverflow.com/a/9941819/360838
+   */
+  private function transformMonthToNumber(string $month, int $year): int
+  {
+    // in a perfect world, strtotime($month) would be enough, but this world
+    // has leap years.  for more information about why the following works,
+    // see stack overflow at the link above.
+    
+    return date('m', strtotime(strtolower($month) . '-' . $year));
   }
   
   /**
@@ -58,8 +103,7 @@ class MediaLibraryAgent extends AbstractPluginAgent
       return;
     }
     
-    $ratios = $this->handler->getOption('aspect-ratios', []);
-    array_walk($ratios, fn(AspectRatio &$ratio) => $ratio = $ratio->name);
+    $ratios = $this->getRatios();
     if (sizeof($ratios) === 0) {
       
       // if we don't have any ratios in the database, then we can also leave
@@ -79,6 +123,23 @@ class MediaLibraryAgent extends AbstractPluginAgent
   }
   
   /**
+   * getRatios
+   *
+   * Returns an array mapping the decimal representation of aspect ratios to
+   * their names (e.g. 1.778 => 16:9).
+   *
+   * @return array
+   * @throws HandlerException
+   * @throws TransformerException
+   */
+  private function getRatios(): array
+  {
+    $ratios = $this->handler->getOption('aspect-ratios', []);
+    array_walk($ratios, fn(AspectRatio &$ratio) => $ratio = $ratio->name);
+    return $ratios;
+  }
+  
+  /**
    * filterByAspectRatio
    *
    * When the media library is presented in list view and a ratio has been
@@ -91,20 +152,48 @@ class MediaLibraryAgent extends AbstractPluginAgent
    */
   protected function filterByAspectRatio(WP_Query $query): void
   {
-    if (
-      $query->get('post_type') === 'attachment' // if we're querying attachments
-      && ($_GET['mode'] ?? '') === 'list'       // and we're displaying list mode
-      && (!empty($_GET['ratio']))               // and the ratio isn't empty
-    ) {
-      
-      // as long as our conditions are met, all we need to do here is make
-      // sure that our query knows to make sure that our aspect-ratio meta
-      // data matches the ratio in our query string.  conveniently, this
-      // doesn't require a meta query, though more care might be needed to
-      // avoid obliterating other meta queries already present.
-      
-      $query->set('meta_key', $this->handler->getPostMetaNamePrefix() . 'aspect-ratio');
-      $query->set('meta_value', $_GET['ratio']);
+    $ratio = $_REQUEST['media-attachment-ratio-filters'] ?? null;
+    if ($query->get('post_type') === 'attachment' && $ratio !== null) {
+      if (($_REQUEST['mode'] ?? 'grid') === 'list') {
+        $this->addAspectRatioLimitationToQuery($query);
+      } else {
+        $this->filterGridView($query);
+      }
     }
+  }
+  
+  /**
+   * addAspectRatioLimitationToQuery
+   *
+   * Given a WP_Query object, adds a limitation that ensures we only show
+   * images with a specific aspect ratio.
+   *
+   * @param WP_Query $query
+   *
+   * @return void
+   */
+  private function addAspectRatioLimitationToQuery(WP_Query $query): void
+  {
+    $query->set('meta_key', $this->handler->getPostMetaNamePrefix() . 'aspect-ratio');
+    $query->set('meta_value', $_REQUEST['media-attachment-date-filters']);
+  }
+  
+  /**
+   * filterGridView
+   *
+   * Typically, the grid view is handled via AJAX, but we've added a filter
+   * with JS based refresh capabilities to crib together a way to filter it
+   * here.
+   *
+   * @param WP_Query $query
+   *
+   * @return void
+   */
+  private function filterGridView(WP_Query $query): void
+  {
+    $this->addAspectRatioLimitationToQuery($query);
+    
+    
+    self::debug($query, true);
   }
 }
