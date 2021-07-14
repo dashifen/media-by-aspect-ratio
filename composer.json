@@ -1,0 +1,24 @@
+{
+  "name": "dashifen/media-by-aspect-ratio",
+  "description": "A WordPress plugin that provides the capability to show images that match specific aspect ratios.",
+  "minimum-stability": "stable",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "David Dashifen Kees",
+      "email": "dashifen@dashifen.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Dashifen\\MediaByAspectRatio\\": "src"
+    }
+  },
+  "require": {
+    "dashifen/wp-handler": "^10.9"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true
+  }
+}
