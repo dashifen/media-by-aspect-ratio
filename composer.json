@@ -17,6 +17,9 @@
   "require": {
     "dashifen/wp-handler": "^10.9"
   },
+  "require-dev": {
+    "wp-cli/wp-cli": "^2.5"
+  },
   "config": {
     "optimize-autoloader": true,
     "sort-packages": true
