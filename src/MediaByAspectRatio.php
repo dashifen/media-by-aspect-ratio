@@ -33,6 +33,7 @@ class MediaByAspectRatio extends AbstractPluginHandler
     if (!$this->isInitialized()) {
       $this->registerActivationHook('activation');
       $this->addAction('init', 'initializeAgents', 1);
+      $this->addFilter('timber/locations', 'addTwigLocation');
     }
   }
   
@@ -87,6 +88,22 @@ class MediaByAspectRatio extends AbstractPluginHandler
         $agent->initialize();
       }
     }
+  }
+  
+  /**
+   * addTwigLocation
+   *
+   * Adds this plugin's folder of twig templates to the list of locations
+   * that Timber will look for said templates.
+   *
+   * @param array $locations
+   *
+   * @return array
+   */
+  protected function addTwigLocation(array $locations): array
+  {
+    $locations[] = $this->pluginDir . '/assets/twigs/';
+    return $locations;
   }
   
   /**

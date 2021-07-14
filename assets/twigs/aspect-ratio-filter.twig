@@ -1,0 +1,9 @@
+<label class="screen-reader-text" for="filter-by-aspect-ratio">Filter by aspect ratio</label>
+<select id="filter-by-aspect-ratio" name="ratio" data-current="{{ current }}">
+  <option value="">All aspect ratios</option>
+  {% for ratio, name in ratios %}
+    <option value="{{ ratio }}"
+      {% if current == ratio %} selected="selected" {% endif %}
+    >{{ name }}</option>
+  {% endfor %}
+</select>

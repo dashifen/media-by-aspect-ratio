@@ -8,9 +8,10 @@ use Dashifen\Repository\RepositoryException;
 /**
  * Class AspectRatio
  *
- * @property-read int   $width
- * @property-read int   $height
- * @property-read float $ratio
+ * @property-read int    $width
+ * @property-read int    $height
+ * @property-read string $name
+ * @property-read float  $ratio
  *
  * @package Dashifen\MediaByAspectRatio\Repositories
  */
@@ -20,20 +21,23 @@ class AspectRatio extends Repository
   
   protected int $width;
   protected int $height;
+  protected string $name;
   
   /**
    * AspectRatio constructor.
    *
-   * @param int $width
-   * @param int $height
+   * @param int    $width
+   * @param int    $height
+   * @param string $name
    *
    * @throws RepositoryException
    */
-  public function __construct(int $width, int $height)
+  public function __construct(int $width, int $height, string $name = '')
   {
     parent::__construct([
       'width'  => $width,
       'height' => $height,
+      'name'   => $name,
     ]);
   }
   
@@ -58,13 +62,14 @@ class AspectRatio extends Repository
   /**
    * __toString
    *
-   * Prints the aspect ratio as $width:$height (e.g. 16:9).
+   * Returns the value of our getName method which is slightly more complicated
+   * than would be typical.  See below for more information.
    *
    * @return string
    */
   public function __toString()
   {
-    return $this->width . ':' . $this->height;
+    return $this->getName();
   }
   
   /**
@@ -105,5 +110,35 @@ class AspectRatio extends Repository
     }
     
     $this->height = $height;
+  }
+  
+  /**
+   * setName
+   *
+   * Sets the name property.
+   *
+   * @param string $name
+   *
+   * @return void
+   */
+  protected function setName(string $name): void
+  {
+    $this->name = $name;
+  }
+  
+  /**
+   * getName
+   *
+   * Returns either the name property or, when it's empty, the width and height
+   * in the format of W:H, e.g. 16:9.  Remember:  getters are automatically
+   * called by the __get method when they're available.
+   *
+   * @return string
+   */
+  public function getName(): string
+  {
+    return empty($this->name)
+      ? $this->width . ':' . $this->height
+      : $this->name;
   }
 }

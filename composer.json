@@ -15,7 +15,8 @@
     }
   },
   "require": {
-    "dashifen/wp-handler": "^10.9"
+    "dashifen/wp-handler": "^10.9",
+    "timber/timber": "^1.18"
   },
   "require-dev": {
     "wp-cli/wp-cli": "^2.5"
