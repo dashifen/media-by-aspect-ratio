@@ -53,20 +53,42 @@ class MediaLibraryAgent extends AbstractPluginAgent
     if (
       $screen->base === 'upload'              // if we're uploading
       && $screen->post_type === 'attachment'  // attachments
-      && ($_GET['mode'] ?? '') !== 'list'     // in grid view
     ) {
-      $ratios = json_encode($this->getRatios());
-      $handle = $this->enqueue('assets/scripts/admin-grid-modifications.js');
-      wp_add_inline_script($handle, 'const aspectRatios = ' . $ratios, 'before');
+      if (($_GET['mode'] ?? 'grid') === 'grid') {
+        $ratios = json_encode($this->getRatios());
+        $handle = $this->enqueue('assets/scripts/admin-grid-modifications.js');
+        wp_add_inline_script($handle, 'const aspectRatios = ' . $ratios, 'before');
+      } else {
+        $this->enqueue('assets/scripts/admin-list-modifications.js');
+      }
     }
+  }
+  
+  /**
+   * getRatios
+   *
+   * Returns an array mapping the decimal representation of aspect ratios to
+   * their names (e.g. 1.778 => 16:9).
+   *
+   * @return array
+   * @throws HandlerException
+   * @throws TransformerException
+   */
+  private function getRatios(): array
+  {
+    $ratios = $this->handler->getOption('aspect-ratios', []);
+    array_walk($ratios, fn(AspectRatio &$ratio) => $ratio = $ratio->name);
+    return $ratios;
   }
   
   protected function ajaxFilterGridView(array $query): array
   {
     if (isset($_REQUEST['query']['media-attachment-ratio-filters'])) {
-      $query['post_mime_type'] = 'image';
-      $query['meta_key'] = $this->handler->getPostMetaNamePrefix() . 'aspect-ratio';
-      $query['meta_value'] = $_REQUEST['query']['media-attachment-ratio-filters'];
+      if ($_REQUEST['query']['media-attachment-ratio-filters'] !== 'all') {
+        $query['meta_key'] = $this->handler->getPostMetaNamePrefix() . 'aspect-ratio';
+        $query['meta_value'] = $_REQUEST['query']['media-attachment-ratio-filters'];
+        $query['post_mime_type'] = 'image';
+      }
       
       $dateQuery = $_REQUEST['query']['media-attachment-date-filters'] ?? 'All dates';
       
@@ -136,26 +158,9 @@ class MediaLibraryAgent extends AbstractPluginAgent
     // Timber to keep the concerns of HTML and PHP separate as follows.
     
     Timber::render('aspect-ratio-filter.twig', [
-      'current' => $_GET['ratio'] ?? '',
+      'current' => $_GET['media-attachment-ratio-filters'] ?? '',
       'ratios'  => $ratios,
     ]);
-  }
-  
-  /**
-   * getRatios
-   *
-   * Returns an array mapping the decimal representation of aspect ratios to
-   * their names (e.g. 1.778 => 16:9).
-   *
-   * @return array
-   * @throws HandlerException
-   * @throws TransformerException
-   */
-  private function getRatios(): array
-  {
-    $ratios = $this->handler->getOption('aspect-ratios', []);
-    array_walk($ratios, fn(AspectRatio &$ratio) => $ratio = $ratio->name);
-    return $ratios;
   }
   
   /**
@@ -172,19 +177,21 @@ class MediaLibraryAgent extends AbstractPluginAgent
   protected function filterListView(WP_Query $query): void
   {
     if (
-      $query->get('post_type') === 'attachment' // if we're querying attachments
-      && ($_GET['mode'] ?? '') === 'list'       // and we're displaying list mode
-      && (!empty($_GET['ratio']))               // and the ratio isn't empty
+      $query->get('post_type') === 'attachment'             // if we're querying attachments
+      && ($_GET['mode'] ?? 'grid') === 'list'               // and we're displaying list mode
     ) {
-      
-      // as long as our conditions are met, all we need to do here is make
-      // sure that our query knows to make sure that our aspect-ratio meta
-      // data matches the ratio in our query string.  conveniently, this
-      // doesn't require a meta query, though more care might be needed to
-      // avoid obliterating other meta queries already present.
-      
-      $query->set('meta_key', $this->handler->getPostMetaNamePrefix() . 'aspect-ratio');
-      $query->set('meta_value', $_GET['ratio']);
+      $ratio = $_GET['media-attachment-ratio-filters'] ?? 'all';
+      if ($ratio !== 'all') {
+  
+        // as long as our conditions are met, all we need to do here is make
+        // sure that our query knows to make sure that our aspect-ratio meta
+        // data matches the ratio in our query string.  conveniently, this
+        // doesn't require a meta query, though more care might be needed to
+        // avoid obliterating other meta queries already present.
+  
+        $query->set('meta_key', $this->handler->getPostMetaNamePrefix() . 'aspect-ratio');
+        $query->set('meta_value', $ratio);
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
-<label class="screen-reader-text" for="media-attachment-date-filters">Filter by aspect ratio</label>
-<select id="media-attachment-date-filters" name="media-attachment-date-filters">
-  <option value="">All aspect ratios</option>
+<label class="screen-reader-text" for="media-attachment-ratio-filters">Filter by aspect ratio</label>
+<select id="media-attachment-ratio-filters" name="media-attachment-ratio-filters">
+  <option value="all">All aspect ratios</option>
   {% for ratio, name in ratios %}
     <option value="{{ ratio }}"
       {% if current == ratio %} selected="selected" {% endif %}
