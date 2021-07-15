@@ -51,10 +51,10 @@ class MediaByAspectRatio extends AbstractPluginHandler
   protected function activation(): void
   {
     if (empty($this->getOption('aspect-ratios', []))) {
-      $square = new AspectRatio(1, 1);        // uhm ... square
-      $full = new AspectRatio(4, 3);          // older monitors, TVs
-      $wide1 = new AspectRatio(16, 9);        // HD video and wide screens
-      $wide2 = new AspectRatio(16, 10);       // some tablets and wide screens
+      $square = new AspectRatio(1, 1, 'Square');
+      $full = new AspectRatio(4, 3, 'Full screen');
+      $wide1 = new AspectRatio(16, 9, 'HD Wide Screen');
+      $wide2 = new AspectRatio(16, 10, 'PC Wide Screen');
       
       $this->updateOption('aspect-ratios', [
         (string) $square->ratio => $square,

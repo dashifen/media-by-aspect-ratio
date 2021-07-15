@@ -21,9 +21,9 @@ use Dashifen\WPHandler\Commands\Arguments\AssociativeArgument;
 class MeasurementCommand extends AbstractCommand
 {
   // PHP's default max_execution_time is 30, so we'll use that as our default
-  // timeout, too.
+  // time limit, too.
   
-  public const DEFAULT_TIMEOUT = 30;
+  public const DEFAULT_TIME_LIMIT = 30;
   
   /**
    * initialize
@@ -37,9 +37,10 @@ class MeasurementCommand extends AbstractCommand
    */
   public function initialize(): void
   {
-    $this->addArgument(new AssociativeArgument('timeout', 'The length of time in seconds to work before timing out (default 30, 0 for unlimited)'));
+    $this->addArgument(new AssociativeArgument('time-limit', 'The length of time in seconds to work  (default 30, 0 for unlimited)'));
     $this->setShortDesc('Measures aspect ratios for images in the media library');
-    $this->setLongDesc(<<< DESC
+    
+    $longDesc = <<< DESC
       ## EXAMPLES
       
         # Measures images in media library
@@ -51,10 +52,11 @@ class MeasurementCommand extends AbstractCommand
         Warning: Some images measured; run again to proceed.
         
         # Specifies length of time in seconds for measurement (0 for no limit)
-        $ wp media-by-aspect-ratio measure --timeout=120
+        $ wp media-by-aspect-ratio measure --time-limit=120
         Success: Images measured.
-DESC
-    );
+DESC;
+    
+    $this->setLongDesc($longDesc);
   }
   
   /**
@@ -75,27 +77,37 @@ DESC
     // first parameter is unnecessary.  sadly, there's no way to avoid it being
     // delivered here, so we'll just ignore it.
     
-    $start = time();
-    $timeout = $this->getTimeout($flags);
     $images = $this->getImages();
+    if (($imageCount = sizeof($images)) === 0) {
+      
+      // if we didn't select any images, it's likely that either (a) there are
+      // none in the media library or (b) all of the images in the library have
+      // already been measured.  either way, we'll let the executor know and
+      // then return.
+      
+      WP_CLI::warning('No unmeasured images found.');
+      return;
+    }
+  
+    // for our time limit, we get what the visitor specified (or our default)
+    // and then we reduce it by three seconds to give us a buffer between when
+    // our work needs to be done and when (presumably) PHP will cut the process
+    // off more abruptly.
+    
+    $timeLimit = $this->getTimeLimit($flags) - 3;
+    $start = time();
     
     $complete = true;
     foreach ($images as $i => $imageId) {
       $this->measureImage($imageId);
-      $elapsed = $start - time();
-      
-      // if we're within three seconds of our time limit, we'll quit early to
-      // try and ensure that we don't end up throwing a PHP error.  this should
-      // allow us to call WP_CLI::error instead.
-      
-      if ($elapsed > $timeout - 3) {
+      if ((time() - $start) > $timeLimit) {
         
-        // it's possible that we're within three seconds of our time limit and
-        // also just measured the last image in the library.  so, we'll check
-        // to see if $i is the same as the size of our set of images with the
-        // necessary off-by-one modification.
+        // it's possible that, despite exceeding our time limit, we've also
+        // processed all of our images.  so, we'll see if our loop index is the
+        // same as the size of our array (modified to avoid a possible off-by-
+        // one error) and then break out of the loop.
         
-        $complete = $i === sizeof($images) - 1;
+        $complete = $i === $imageCount - 1;
         break;
       }
     }
@@ -108,24 +120,24 @@ DESC
   }
   
   /**
-   * getTimeout
+   * getTimeLimit
    *
-   * Extracts the value for our timeout parameter from the parameter
+   * Extracts the value for our time limit parameter from the parameter
    *
    * @param array $flags
    *
    * @return int
    */
-  private function getTimeout(array $flags): int
+  private function getTimeLimit(array $flags): int
   {
-    $timeout = $flags['timeout'] ?? self::DEFAULT_TIMEOUT;
+    $timeLimit = $flags['time-limit'] ?? self::DEFAULT_TIME_LIMIT;
     
-    // in case someone gets cute and sends a string or floating point timeout,
-    // we'll be sure we return an int here.  if we have a number, we pass it
-    // through floor to remove any fractional parts; otherwise, we just return
-    // our default again if it was a string or some other value.
+    // in case someone gets cute and sends a string or floating point time
+    // limit, we'll be sure we return an int here.  if we have a number, we
+    // pass it through floor to remove any fractional parts; otherwise, we just
+    // return our default again if it was a string or some other value.
     
-    return is_numeric($timeout) ? floor($timeout) : self::DEFAULT_TIMEOUT;
+    return is_numeric($timeLimit) ? floor($timeLimit) : self::DEFAULT_TIME_LIMIT;
   }
   
   /**
@@ -173,25 +185,18 @@ DESC
   private function measureImage(int $imageId): void
   {
     $imageData = get_post_meta($imageId, '_wp_attachment_metadata', true);
-    if (isset($imageData['width']) && isset($imageData['height'])) {
-      
-      // if we have dimensions for this image, then we want to calculate the
-      // ratio between them.  then, we compare that to the ratios that we care
-      // about on this site.  if we have a match that's within a certain
-      // threshold, we identify this image as having the ratio of that match.
-      
-      $ratio = round($imageData['width'] / $imageData['height'], AspectRatio::PRECISION);
-      $this->handler->updatePostMeta($imageId, 'aspect-ratio', $ratio);
-    } else {
-      
-      // and, finally, if we didn't have image dimensions for some reason, then
-      // we can't do anything except store a zero in the database.  we do this
-      // for the same reason we store the actual ratio above:  if we don't
-      // store something, this image will be re-selected for measurement over
-      // and over again.
-      
-      $this->handler->updatePostMeta($imageId, 'aspect-ratio', 0);
-    }
+    
+    // if we have a width and a height, we calculate the ratio between them
+    // to the precision specified by our AspectRatio object.  if those data are
+    // missing for some reason, we just default to zero.  we have to store
+    // something in the database or this image would be re-selected if the
+    // measure command is executed again.
+    
+    $ratio = isset($imageData['width']) && isset($imageData['height'])
+      ? round($imageData['width'] / $imageData['height'], AspectRatio::PRECISION)
+      : 0;
+  
+    $this->handler->updatePostMeta($imageId, 'aspect-ratio', $ratio);
   }
 }
 

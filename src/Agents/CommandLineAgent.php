@@ -22,6 +22,12 @@ class CommandLineAgent extends AbstractPluginAgent
   public function initialize(): void
   {
     if (!$this->isInitialized() && defined('WP_CLI') && WP_CLI) {
+      
+      // we don't have to register our own command namespace because we're
+      // going to add our measure command to the media namespace.  that means
+      // we can simply register our command as a subcommand of media and pass
+      // our handler to it.
+      
       $this->registerSubcommand(new MeasurementCommand('measure', 'media', $this->handler));
       $this->initializeCommands();
     }

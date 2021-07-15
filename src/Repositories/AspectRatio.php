@@ -130,8 +130,8 @@ class AspectRatio extends Repository
    * getName
    *
    * Returns either the name property or, when it's empty, the width and height
-   * in the format of W:H, e.g. 16:9.  Remember:  getters are automatically
-   * called by the __get method when they're available.
+   * in the format of W:H, e.g. 16:9.  Remember:  Repository getters are
+   * automatically called by the __get method when they're available.
    *
    * @return string
    */
