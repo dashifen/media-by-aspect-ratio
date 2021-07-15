@@ -57,7 +57,7 @@ class MediaLibraryAgent extends AbstractPluginAgent
       if (($_GET['mode'] ?? 'grid') === 'grid') {
         $ratios = json_encode($this->getRatios());
         $handle = $this->enqueue('assets/scripts/admin-grid-modifications.js');
-        wp_add_inline_script($handle, 'const aspectRatios = ' . $ratios, 'before');
+        wp_add_inline_script($handle, 'const mbarAspectRatios = ' . $ratios, 'before');
       } else {
         $this->enqueue('assets/scripts/admin-list-modifications.js');
       }
