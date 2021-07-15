@@ -138,6 +138,6 @@ class AspectRatio extends Repository
   public function getName(): string
   {
     $ratio = $this->width . ':' . $this->height;
-    return !empty($this->name) ? $this->name . '(' . $ratio . ')' : $ratio;
+    return !empty($this->name) ? $this->name . ' (' . $ratio . ')' : $ratio;
   }
 }
